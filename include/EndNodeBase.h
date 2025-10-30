@@ -1,7 +1,7 @@
 /*
  * TestLMICWrapper
  *
- * - LMIC callbacks with CallbackRegister
+ * - LMIC callbacks with JobRegister
  * - battery power with EnergyController
  * - timer interrupt & standby with ISRTimer
  */
@@ -13,7 +13,7 @@
 #include <misc-util.h>
 #include <ISRWrapper.h>
 #include <ISRTimer.h>
-#include <energy.h>
+#include <EnergyController.h>
 #include <JobRegister.h>
 
 namespace lstl = leuville::simple_template_library;
@@ -36,16 +36,18 @@ USBPrinter<Serial_> console(LMIC_PRINTF_TO);
  * - standby mode capacity
  */
 using Button1 = ISRWrapper<DEVICE_BUTTON1_PIN>;
+using EnergyCtrl = EnergyController<VOLTAGE_MIN,VOLTAGE_MAX>;
 
 template <typename T>
 class EndNodeBase : public T, 
 					protected ISRTimer, 
-					protected Button1
+					protected Button1,
+					protected EnergyCtrl
 {
 
 protected:
 
-	EnergyController<BATTPIN,BATTDIV,VOLTAGE_MIN,VOLTAGE_MAX> _energyCtrl;
+	const Range<u1_t> _rangeLora {MCMD_DEVS_BATT_MIN, MCMD_DEVS_BATT_MAX};
 
 	/*
 	 * Jobs for LMIC event callbacks
@@ -85,13 +87,11 @@ public:
 	 * Do not forget Wire.begin() if I2C devices connected
 	 */
 	virtual void begin(const OTAAId& id, u4_t network, bool adr = true) override {
+		EnergyCtrl::begin();
 		Button1::begin();
 		ISRTimer::begin(); 
-
-		Button1::enable();
-		ISRTimer::enable();
-
 		T::begin(id, network, adr);
+
 		T::startJoining();
 	}
 
@@ -128,8 +128,12 @@ public:
 	 */
 	virtual void joined(bool ok) override {
 		if (ok) {
+			Button1::enable();
+			ISRTimer::enable();
 			T::setCallback(_callbacks[JOIN]);
 		} else {
+			Button1::disable();
+			ISRTimer::disable();
 			for (auto & job : _callbacks) {
 				T::unsetCallback(job);
 			}
@@ -151,6 +155,15 @@ public:
 		console.println("----------------------------------------------------------");
     	#endif
 	}
+	virtual bool isSystemTimeSynced() override {
+    	#if defined(LMIC_DEBUG_LEVEL) && LMIC_DEBUG_LEVEL > 0
+		console.println("----------------------------------------------------------");
+		console.println("system time age=", systemTimeAge()); 
+		console.println("----------------------------------------------------------");
+		#endif
+		return T::systemTimeAge() < SYSTEM_TIME_MAX_AGE;
+	}
+
 	#endif
 
 	/*
@@ -163,14 +176,12 @@ public:
 	/*
 	 * TO OVERRIDE
 	 */
-	virtual void buttonJob() {
-	}
+	virtual void buttonJob() = 0;
 
 	/*
 	 * TO OVERRIDE
 	 */
-	virtual void timeoutJob() {
-	}
+	virtual void timeoutJob() = 0;
 
 	virtual void joinJob() {
 		LoRaWanSessionKeys keys = T::getSessionKeys();

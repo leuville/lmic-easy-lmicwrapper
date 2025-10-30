@@ -33,15 +33,11 @@ public:
 
 	/*
 	 * delegates begin() to each sub-component and join
-	 *
-	 * ORDER is important
-	 * If LMIC_USE_INTERRUPTS is enabled, LMIC must be initialized after other interruptions
 	 * 
 	 * Do not forget Wire.begin() if I2C devices connected
 	 */
 	virtual void begin(const OTAAId& id, u4_t network, bool adr = true) override {
-		_energyCtrl.setUnusedPins({A1, A2, A3, A4, A5});
-
+		setUnusedPins({A1, A2, A3, A4, A5});
 		Base::begin(id, network, adr);
 	}
 
@@ -63,7 +59,7 @@ public:
 	virtual void buttonJob() override {
 		const char* format = "CLICK %d";
 		char msg[80];
-		sprintf(msg, format, _energyCtrl.getBatteryPower());
+		sprintf(msg, format, Base::getBatteryPower(EnergyCtrl::_range100));
 		send(msg, true);
 	}
 
@@ -78,7 +74,8 @@ public:
 	 * Build and send Uplink message
 	 */
 	void send(const char* message, bool ack = false) {
-		Base::setBatteryLevel(_energyCtrl.getBatteryPower());
+		auto batt = getBatteryPower(_rangeLora);	
+		setBatteryLevel(batt);
 		UpstreamMessage payload((uint8_t*)message, strlen(message)+1, ack);
 		Base::send(payload);
 		#if defined(LMIC_DEBUG_LEVEL) && LMIC_DEBUG_LEVEL > 0
