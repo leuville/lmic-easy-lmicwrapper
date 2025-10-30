@@ -47,7 +47,14 @@ class EndNodeBase : public T,
 
 protected:
 
-	const Range<u1_t> _rangeLora {MCMD_DEVS_BATT_MIN, MCMD_DEVS_BATT_MAX};
+	/*
+	 * Redefines EnergyController::defineGetVoltage()
+	 */
+	#if defined(ARDUINO_SAMD_FEATHER_M0) || defined(ADAFRUIT_FEATHER_M0)
+	virtual std::function<double(void)> defineGetVoltage() override {
+		return []() -> double { return analogRead(A7) * 2 * 3.3 / 1.023; };
+	}
+	#endif
 
 	/*
 	 * Jobs for LMIC event callbacks

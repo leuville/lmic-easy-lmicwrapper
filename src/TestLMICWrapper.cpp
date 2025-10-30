@@ -26,6 +26,8 @@ class EndNode : public Base
 {
 
 	uint32_t _count = 0;
+	
+	const Range<u1_t> _rangeLora {MCMD_DEVS_BATT_MIN, MCMD_DEVS_BATT_MAX};
 
 public:
 
