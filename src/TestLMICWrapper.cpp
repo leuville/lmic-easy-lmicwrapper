@@ -26,8 +26,6 @@ class EndNode : public Base
 {
 
 	uint32_t _count = 0;
-	
-	const Range<u1_t> _rangeLora {MCMD_DEVS_BATT_MIN, MCMD_DEVS_BATT_MAX};
 
 public:
 
@@ -61,7 +59,7 @@ public:
 	virtual void buttonJob() override {
 		const char* format = "CLICK %d";
 		char msg[80];
-		sprintf(msg, format, Base::getBatteryPower(EnergyCtrl::_range100));
+		sprintf(msg, format, Base::getBatteryPower());
 		send(msg, true);
 	}
 
@@ -76,7 +74,7 @@ public:
 	 * Build and send Uplink message
 	 */
 	void send(const char* message, bool ack = false) {
-		auto batt = getBatteryPower(_rangeLora);	
+		auto batt = getBatteryPower();	
 		setBatteryLevel(batt);
 		UpstreamMessage payload((uint8_t*)message, strlen(message)+1, ack);
 		Base::send(payload);
